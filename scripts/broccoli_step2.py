@@ -227,6 +227,8 @@ def process_file(file):
     ## extract index
     index = file.split('.')[0]
     
+    print("   phylome | %s diamond alignments" % file)
+    
     ## create output directory
     index_dir = out_dir / index
     index_dir.mkdir(parents=True, exist_ok=True)
@@ -240,6 +242,8 @@ def process_file(file):
     ## get all DIAMOND output files
     p = index_dir.glob('*.gz')
     tmp_l = [x for x in p if x.is_file()]
+
+    print("   phylome | %s diamond concatenate" % file)
 
     ## get all hits in a dict of list
     all_output = collections.defaultdict(list)
@@ -256,8 +260,10 @@ def process_file(file):
     nb_empty_ali  = 0
     all_alis = dict()
     no_phylo = dict()
+
+    print("   phylome | %s alignment post-processing, n=%i" % (file, len(all_output)))
     
-    for prot in all_output:
+    for prot_n,prot in enumerate(all_output):
         ## variable for reduced list of output
         reduced = list()
         
@@ -349,6 +355,8 @@ def process_file(file):
     ## save similarity_ortho groups to file
     blast_ortho_file = index + '_similarity_ortho.pic'
     utils.save_pickle(out_dir / 'dict_similarity_ortho' / blast_ortho_file, no_phylo)
+
+    print("   phylome | %s save alignments" % file)
     
     ## save all alignments to file
     name_ali_file = 'alis_' + index + '.phy'
@@ -371,6 +379,8 @@ def process_file(file):
         insert = '-noml'
     elif phylo_method == 'ml':
         insert = ''
+
+    print("   phylome | %s run phylogenetic trees, n=%i..." % (file, nb_alis))
     
     ## perform phylogenetic analyses and root trees
     all_trees  = dict()
@@ -379,9 +389,12 @@ def process_file(file):
     a2 = a.strip().decode("utf-8")
     a3 = a2.split('\n')
     c = -1
+
+    print("   phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
+
     for line in a3:
-        # case the line is in the form 'Ignored unknown character ...'
-        if line.startswith('Ign'):
+        # case the line is in the form 'Ignored unknown character ...' or 'WARNING! 100.0% NUCLEOTIDE CHARACTERS'
+        if line.startswith('Ign') or line.startswith('WARNING'):
             pass
         else:
             c += 1
@@ -409,9 +422,9 @@ def process_file(file):
     
     ## clean directory
     # delete ali file
-    Path.unlink(out_dir / name_ali_file)
+    # Path.unlink(out_dir / name_ali_file)
     # delete Diamond outputs
-    shutil.rmtree(index_dir)
+    # shutil.rmtree(index_dir)
     
     return [index, str(nb_phylo), str(nb_NO_phylo), str(nb_empty_ali), str(nb_pbm_tree)]
       

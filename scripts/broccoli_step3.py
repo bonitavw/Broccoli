@@ -111,9 +111,9 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     save_outputs(cleaned_communities, all_chimeric_prot, all_species) 
     
     ## clean dir
-    Path.unlink(out_dir / 'd_ortho.pic')
-    Path.unlink(out_dir / 'd_para.pic')
-    Path.unlink(out_dir / 's_filter.pic')
+    # Path.unlink(out_dir / 'd_ortho.pic')
+    # Path.unlink(out_dir / 'd_para.pic')
+    # Path.unlink(out_dir / 's_filter.pic')
     
     print('')   
     
@@ -170,7 +170,7 @@ def extract_ortho(l_trees):
 
     # free memory
     content_pickle = None
-    shutil.rmtree(path_tmp_ortho)
+    # shutil.rmtree(path_tmp_ortho)
 
     # remove ortho found only once
     print(' remove ortho found only once')
@@ -310,8 +310,8 @@ def extract_para(l_trees):
     
     # free memory
     set_filter = None
-    shutil.rmtree(path_tmp_para)
-    shutil.rmtree(path_tmp)
+    # shutil.rmtree(path_tmp_para)
+    # shutil.rmtree(path_tmp)
 
 
 def extract_para_from_trees(filename):
