@@ -22,6 +22,7 @@ import sys
 import collections
 import csv
 import subprocess
+import logging
 import gzip
 import math
 import re
@@ -35,7 +36,13 @@ except:
     sys.exit("\n            ERROR: the ete3 library is not installed\n\n")
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
+logger = logging.getLogger("broccoli")
 
 def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
 
@@ -71,15 +78,19 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     global db_dir
     db_dir = out_dir / 'databases'
     db_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Creating databases")
     multithread_databases(list_files, nb_threads)
     
     ## process each proteome
     print('\n # build phylomes ... be patient')
+    logger.info("Starting multithread")
     multithread_process_file(list_files, nb_threads)
-    
+   
+    logger.info("Saving process")
     ## save prot 2 species dict (needed for steps 3 and 4)
     save_prot_2_sp(name_2_sp_phylip_seq)
-    
+   
+    logger.info("Deleting of database directory")
     # delete databases directory 
     shutil.rmtree(db_dir)
     
@@ -141,6 +152,7 @@ def multithread_databases(l_file, n_threads):
 def prepare_databases(file):
     input_file = str(Path('dir_step1') / file)
     database_path = str(db_dir / file.replace('.fas','.db'))
+    logger.info("Create database with file: %s" % file)
     subprocess.check_output(path_diamond + ' makedb --in ' + input_file + ' --db ' + database_path + ' 2>&1', shell=True)
 
 
@@ -225,6 +237,7 @@ def get_positions(ref_name, hits, t):
 
 def process_file(file):       
     ## extract index
+    logger.info("Process file: %s" % file)
     index = file.split('.')[0]
     
     print("   phylome | %s diamond alignments" % file)
