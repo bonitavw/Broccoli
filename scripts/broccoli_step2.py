@@ -397,9 +397,15 @@ def process_file(file):
     ## perform phylogenetic analyses and root trees
     all_trees  = dict()
     nb_pbm_tree = 0
-    a = subprocess.check_output(path_fasttree + ' -quiet -nosupport -fastest -bionj -pseudo ' + insert + ' -n ' + str(nb_alis) + ' ' + str(Path(out_dir / name_ali_file)) + ' 2>&1', shell=True)
-    a2 = a.strip().decode("utf-8")
-    a3 = a2.split('\n')
+    cmd = [
+        path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
+    ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    a3 = []
+    for line in proc.stdout:
+        a3.append(line.strip())
+    proc.stdout.close()
+    proc.wait()
     c = -1
 
     logger.info("   phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
