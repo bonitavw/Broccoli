@@ -67,7 +67,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     
     ## check directory input data
     global list_files
-    print('\n # check input files')
+    logger.info('\n # check input files')
     list_files = pre_checking_data(Path('dir_step1'))
     
     ## load all sequences
@@ -82,8 +82,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     multithread_databases(list_files, nb_threads)
     
     ## process each proteome
-    print('\n # build phylomes ... be patient')
-    logger.info("Starting multithread")
+    logger.info('\n # build phylomes ... be patient')
     multithread_process_file(list_files, nb_threads)
    
     logger.info("Saving process")
@@ -94,7 +93,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     # delete databases directory 
     shutil.rmtree(db_dir)
     
-    print(' done\n')
+    logger.info(' done\n')
 
     
 def pre_checking_data(directory):
@@ -114,7 +113,7 @@ def pre_checking_data(directory):
     if len(list_files) == 0:
         sys.exit("\n            ERROR STEP 2: there is no input fasta file (*.fas) in the directory dir_step1/\n\n")
     else:
-        print (' ' + str(len(list_files)) + ' input fasta files')
+        logger.info (' ' + str(len(list_files)) + ' input fasta files')
             
     return list_files
 
@@ -136,7 +135,7 @@ def create_dict_seq(l_files):
                 # save all within a tuple
                 d_seq[name_seq] = (sp, phylip_name, seq)
     
-    print (' ' + str(len(d_seq)) + ' sequences')
+    logger.info (' ' + str(len(d_seq)) + ' sequences')
     return d_seq, d_sp
 
 
@@ -240,7 +239,7 @@ def process_file(file):
     logger.info("Process file: %s" % file)
     index = file.split('.')[0]
     
-    print("   phylome | %s diamond alignments" % file)
+    logger.info("   phylome | %s diamond alignments" % file)
     
     ## create output directory
     index_dir = out_dir / index
@@ -256,7 +255,7 @@ def process_file(file):
     p = index_dir.glob('*.gz')
     tmp_l = [x for x in p if x.is_file()]
 
-    print("   phylome | %s diamond concatenate" % file)
+    logger.info("   phylome | %s diamond concatenate" % file)
 
     ## get all hits in a dict of list
     all_output = collections.defaultdict(list)
@@ -274,7 +273,7 @@ def process_file(file):
     all_alis = dict()
     no_phylo = dict()
 
-    print("   phylome | %s alignment post-processing, n=%i" % (file, len(all_output)))
+    logger.info("   phylome | %s alignment post-processing, n=%i" % (file, len(all_output)))
     
     for prot_n,prot in enumerate(all_output):
         ## variable for reduced list of output
@@ -369,7 +368,7 @@ def process_file(file):
     blast_ortho_file = index + '_similarity_ortho.pic'
     utils.save_pickle(out_dir / 'dict_similarity_ortho' / blast_ortho_file, no_phylo)
 
-    print("   phylome | %s save alignments" % file)
+    logger.info("   phylome | %s save alignments" % file)
     
     ## save all alignments to file
     name_ali_file = 'alis_' + index + '.phy'
@@ -393,7 +392,7 @@ def process_file(file):
     elif phylo_method == 'ml':
         insert = ''
 
-    print("   phylome | %s run phylogenetic trees, n=%i..." % (file, nb_alis))
+    logger.info("   phylome | %s run phylogenetic trees, n=%i..." % (file, nb_alis))
     
     ## perform phylogenetic analyses and root trees
     all_trees  = dict()
@@ -403,7 +402,7 @@ def process_file(file):
     a3 = a2.split('\n')
     c = -1
 
-    print("   phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
+    logger.info("   phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
 
     for line in a3:
         # case the line is in the form 'Ignored unknown character ...' or 'WARNING! 100.0% NUCLEOTIDE CHARACTERS'
