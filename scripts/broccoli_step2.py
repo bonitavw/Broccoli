@@ -400,12 +400,13 @@ def process_file(file):
     cmd = [
         path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
     ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     a3 = []
     for line in proc.stdout:
         a3.append(line.strip())
     proc.stdout.close()
     proc.wait()
+
     c = -1
 
     logger.info("   phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
