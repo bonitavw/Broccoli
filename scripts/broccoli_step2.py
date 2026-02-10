@@ -47,8 +47,9 @@ logger = logging.getLogger("broccoli")
 def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
 
     # convert the parameters to global variables (horrible hack)
-    global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads = eval, msp, pdia, pfas, tt, pm, nt
+    global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
+    # TODO: nb_splits to be a parameter
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads = eval, msp, pdia, pfas, tt, pm, nt, 10
 
     print('\n --- STEP 2: phylomes\n')
     print(' # parameters')
@@ -57,6 +58,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     print(' gaps        : ' + str(trim_thres))
     print(' phylogenies : ' + phylo_method.replace('nj','neighbor joining').replace('me','minimum evolution').replace('ml','maximum likelihood'))
     print(' threads     : ' + str(nb_threads))
+    print(' splits      : ' + str(nb_splits))
        	
     ## create output directory (or empty it if it already exists)
     global out_dir
@@ -69,7 +71,8 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     global list_files
     logger.info('\n # check input files')
     list_files = pre_checking_data(Path('dir_step1'))
-    
+   
+    logger.info(list_files)
     ## load all sequences
     global name_2_sp_phylip_seq, all_species
     name_2_sp_phylip_seq, all_species = create_dict_seq(list_files)
@@ -83,7 +86,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     
     ## process each proteome
     logger.info('\n # build phylomes ... be patient')
-    multithread_process_file(list_files, nb_threads)
+    multithread_process_file(list_files, nb_threads, nb_splits)
    
     logger.info("Saving process")
     ## save prot 2 species dict (needed for steps 3 and 4)
@@ -155,10 +158,10 @@ def prepare_databases(file):
     subprocess.check_output(path_diamond + ' makedb --in ' + input_file + ' --db ' + database_path + ' 2>&1', shell=True)
 
 
-def multithread_process_file(l_file, n_threads):
+def multithread_process_file(l_file, n_threads, n_splits=10):
     # start multithreading
     pool = ThreadPool(n_threads) 
-    tmp_res = pool.map_async(process_file, l_file, chunksize=1)
+    tmp_res = pool.map_async(process_file, l_file, n_splits, chunksize=1)
     results_2 = tmp_res.get()
     pool.close() 
     pool.join()
@@ -234,7 +237,7 @@ def get_positions(ref_name, hits, t):
     return good
 
 
-def process_file(file):       
+def process_file(file, num_splits):       
     ## extract index
     logger.info("Process file: %s" % file)
     index = file.split('.')[0]
@@ -371,13 +374,21 @@ def process_file(file):
     logger.info("   phylome | %s save alignments" % file)
     
     ## save all alignments to file
-    name_ali_file = 'alis_' + index + '.phy'
-    write_ali = open(out_dir / name_ali_file, 'w+')
+    # Split alignments into multiple files using num_splits
+    split_size = (len(all_alis) + num_splits - 1) // num_splits  # Ceiling division
     all_ref_prot = list()
-    for ref_prot, ali in all_alis.items():
-        write_ali.write(ali + '\n')
-        all_ref_prot.append(ref_prot)
-    write_ali.close()
+    items = list(all_alis.items())
+    ali_filenames = []
+    for split_idx in range(num_splits):
+        start = split_idx * split_size
+        end = min(start + split_size, len(items))
+        split_items = items[start:end]
+        name_ali_file = f'alis_{index}_{split_idx}.phy'
+        ali_filenames.append(name_ali_file)
+        with open(out_dir / name_ali_file, 'w+') as write_ali:
+            for ref_prot, ali in split_items:
+                write_ali.write(ali + '\n')
+                all_ref_prot.append(ref_prot)
     
     # free memory
     nb_alis = len(all_alis)
@@ -397,15 +408,45 @@ def process_file(file):
     ## perform phylogenetic analyses and root trees
     all_trees  = dict()
     nb_pbm_tree = 0
-    cmd = [
-        path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
-    ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    # NOTE: If CPU-bound, this should be ProcessPoolExecutor
+
+    def run_fasttree(cmd):
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            output = [line.strip() for line in proc.stdout]
+            proc.stdout.close()
+            retcode = proc.wait()
+            if retcode != 0:
+                logger.error(f"FastTree failed with exit code {retcode}: {' '.join(cmd)}")
+                stderr = proc.stderr.read()
+                logger.error(f"FastTree stderr: {stderr}")
+                return []
+            return output
+        except Exception as e:
+            logger.error(f"Exception running FastTree: {e}")
+            return []
+
+    a3_results = []
+    with ThreadPoolExecutor(max_workers=num_splits) as executor:
+        futures = {}
+        for split_idx, name_ali_file in enumerate(ali_filenames):
+            cmd = [
+                path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
+            ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
+            futures[executor.submit(run_fasttree, cmd)] = split_idx
+        for future in as_completed(futures):
+            split_idx = futures[future]
+            try:
+                a3_results.append((split_idx, future.result()))
+            except Exception as e:
+                logger.error(f"Exception in FastTree future: {e}")
+                a3_results.append((split_idx, []))
+    # Sort results by split index and flatten
+    a3_results.sort(key=lambda x: x[0])
     a3 = []
-    for line in proc.stdout:
-        a3.append(line.strip())
-    proc.stdout.close()
-    proc.wait()
+    for _, tree_lines in a3_results:
+        a3.extend(tree_lines)
 
     c = -1
 
