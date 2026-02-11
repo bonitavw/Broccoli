@@ -49,7 +49,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     # convert the parameters to global variables (horrible hack)
     global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
     # TODO: nb_splits to be a parameter
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads = eval, msp, pdia, pfas, tt, pm, nt, 10
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, 10
 
     print('\n --- STEP 2: phylomes\n')
     print(' # parameters')
