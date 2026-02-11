@@ -160,10 +160,11 @@ def prepare_databases(file):
 
 def multithread_process_file(l_file, n_threads, n_splits=10):
     # start multithreading
-    pool = ThreadPool(n_threads) 
-    tmp_res = pool.map_async(process_file, l_file, n_splits, chunksize=1)
+    pool = ThreadPool(n_threads)
+    args = [(file, n_splits) for file in l_file]
+    tmp_res = pool.starmap_async(process_file, args, chunksize=1)
     results_2 = tmp_res.get()
-    pool.close() 
+    pool.close()
     pool.join()
     
     # load species dict
@@ -171,11 +172,11 @@ def multithread_process_file(l_file, n_threads, n_splits=10):
     
     # create log file
     log_file = open(out_dir / 'log_step2.txt', 'w+')
-    log_file.write('#species_file	nb_phylo	nb_NO_phylo	nb_empty_ali_ali	nb_pbm_tree\n')
+    log_file.write('#species_file\tnb_phylo\tnb_NO_phylo\tnb_empty_ali_ali\tnb_pbm_tree\n')
     
     # save log
     for l in results_2:
-        log_file.write(dict_species[l[0]] + '	' + '	'.join(l[1:]) + '\n')
+        log_file.write(dict_species[l[0]] + '\t' + '\t'.join(l[1:]) + '\n')
     log_file.close()
 
 
