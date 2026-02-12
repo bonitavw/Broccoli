@@ -23,6 +23,7 @@ import argparse
 import os
 import sys
 import shutil
+import time
 from scripts import broccoli_step1
 from scripts import broccoli_step2
 from scripts import broccoli_step3
@@ -114,6 +115,8 @@ def pre_checking_pgms(p_diamond, p_fasttree):
 
 
 if __name__ == "__main__":
+
+    start_time = time.time()  # Start timing
     
     ## get all arguments
     pre_steps, nb_threads, \
@@ -123,7 +126,7 @@ if __name__ == "__main__":
     limit_ortho, not_same_sp = parse_args()
 
 
-    print('\n            Broccoli v1.1\n')
+    print('\n            Broccoli v1.2\n')
 
 
     ## check python version
@@ -153,9 +156,11 @@ if __name__ == "__main__":
     if 4 in steps:
         broccoli_step4.step4_orthologous_pairs(limit_ortho, not_same_sp, nb_threads)
     
-    
-    
-    
-    
+    end_time = time.time()  # End timing
+    elapsed = end_time - start_time
+    mins = int(elapsed // 60)
+    secs = int(elapsed % 60)
+    print(f"\n            Total runtime: {mins} min {secs} sec\n")
+
 
 
