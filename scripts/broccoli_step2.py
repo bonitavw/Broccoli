@@ -419,10 +419,8 @@ def process_file(file, num_splits):
             proc.stdout.close()
             retcode = proc.wait()
             if retcode != 0:
-                logger.error(f"FastTree failed with exit code {retcode}: {' '.join(cmd)}")
                 stderr = proc.stderr.read()
-                logger.error(f"FastTree stderr: {stderr}")
-                return []
+                logger.error(f"FastTree {' '.join(cmd)} returned errors ({retcode}): {stderr}")
             return output
         except Exception as e:
             logger.error(f"Exception running FastTree: {e}")
