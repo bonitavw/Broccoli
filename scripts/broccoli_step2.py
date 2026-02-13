@@ -44,12 +44,11 @@ logging.basicConfig(
 
 logger = logging.getLogger("broccoli")
 
-def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
+def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt, ns):
 
     # convert the parameters to global variables (horrible hack)
     global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
-    # TODO: nb_splits to be a parameter
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, 20
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, ns
 
     print('\n --- STEP 2: phylomes\n')
     print(' # parameters')

@@ -54,6 +54,7 @@ def parse_args():
     step2.add_argument('-nb_hits',          help='max nb of hits per species [default = 6]', metavar='', type=int, default=6)
     step2.add_argument('-max_gap',          help='max fraction of gap per position [default = 0.7]', metavar='', type=float, default=0.7)
     step2.add_argument('-phylogenies',      help='phylogenetic method: \'nj\' (neighbor joining), \'me\' (minimum evolution) or \'ml\' (maximum likelihood) [default = \'nj\']', metavar='', choices=['nj','me','ml'], default= 'nj')
+    step2.add_argument('-subthreads',       help='number of subthreads [default = 10]', metavar='', type=int, default=10)
     
     step3 = parser.add_argument_group(' STEP 3  network analysis')
     step3.add_argument('-sp_overlap',       help='max ratio of overlapping species in phylogenetic trees [default = 0.5]', metavar='', type=float, default=0.5)
@@ -70,7 +71,7 @@ def parse_args():
     
     return args.steps, args.threads, \
     args.dir, args.ext, args.kmer_size, args.kmer_min_aa, \
-    args.e_value, args.nb_hits, args.path_diamond, args.path_fasttree, args.max_gap, args.phylogenies, \
+    args.e_value, args.nb_hits, args.path_diamond, args.path_fasttree, args.max_gap, args.phylogenies, args.subthreads, \
     args.sp_overlap, args.min_weight, args.min_nb_hits, args.chimeric_shared, args.chimeric_nb_sp, \
     args.ratio_ortho, args.not_same_sp
 
@@ -121,7 +122,7 @@ if __name__ == "__main__":
     ## get all arguments
     pre_steps, nb_threads, \
     directory, extension, length_kmer, min_aa, \
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, \
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_splits, \
     sp_overlap, min_weight, min_nb_hits, chimeric_shared, chimeric_nb_sp, \
     limit_ortho, not_same_sp = parse_args()
 
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         broccoli_step1.step1_kmer_clustering(directory, extension, length_kmer, min_aa, nb_threads)
 
     if 2 in steps:
-        broccoli_step2.step2_phylomes(evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads)
+        broccoli_step2.step2_phylomes(evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits)
     
     if 3 in steps:
         broccoli_step3.step3_orthology_network(sp_overlap, min_weight, min_nb_hits, chimeric_shared, chimeric_nb_sp, nb_threads)
