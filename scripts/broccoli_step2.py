@@ -49,7 +49,7 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     # convert the parameters to global variables (horrible hack)
     global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
     # TODO: nb_splits to be a parameter
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, 10
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, 20
 
     print('\n --- STEP 2: phylomes\n')
     print(' # parameters')
@@ -159,13 +159,12 @@ def prepare_databases(file):
 
 
 def multithread_process_file(l_file, n_threads, n_splits=10):
-    # start multithreading
-    pool = ThreadPool(n_threads)
+    # start multiprocessing
+    from multiprocessing import Pool
     args = [(file, n_splits) for file in l_file]
-    tmp_res = pool.starmap_async(process_file, args, chunksize=1)
-    results_2 = tmp_res.get()
-    pool.close()
-    pool.join()
+    with Pool(n_threads) as pool:
+        tmp_res = pool.starmap_async(process_file, args, chunksize=1)
+        results_2 = tmp_res.get()
     
     # load species dict
     dict_species = utils.get_pickle(Path('dir_step1') / 'species_index.pic')
@@ -410,7 +409,6 @@ def process_file(file, num_splits):
     all_trees  = dict()
     nb_pbm_tree = 0
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    # NOTE: If CPU-bound, this should be ProcessPoolExecutor
 
     def run_fasttree(cmd):
         try:
