@@ -165,11 +165,9 @@ def multithread_process_file(l_file, n_threads, n_splits=10):
     files_start = zip(l_file, itertools.repeat(n_splits), itertools.repeat(out_dir), itertools.repeat(l_file), itertools.repeat(path_diamond), itertools.repeat(db_dir),
             itertools.repeat(max_per_species), itertools.repeat(evalue), itertools.repeat(all_species), itertools.repeat(name_2_sp_phylip_seq),
             itertools.repeat(trim_thres), itertools.repeat(phylo_method), itertools.repeat(path_fasttree))
-    pool = ThreadPool(n_threads) 
-    tmp_res = pool.starmap_async(process_file, files_start, chunksize=1)
-    results_2 = tmp_res.get()
-    pool.close() 
-    pool.join()
+    with ThreadPool(n_threads) as pool:
+        tmp_res = pool.starmap_async(process_file, files_start, chunksize=1)
+        results_2 = tmp_res.get()
     
     # load species dict
     dict_species = utils.get_pickle(Path('dir_step1') / 'species_index.pic')
@@ -468,7 +466,6 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
                 if nb_pbm_tree > 100:
                     sys.exit("\n            ERROR STEP 2: too many errors in phylogenetic analyses -> stopped\n\n")
             else:
-                c += 1
                 if not line.startswith('('):
                     nb_pbm_tree += 1            
                     # security
