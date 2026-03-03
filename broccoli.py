@@ -54,7 +54,7 @@ def parse_args():
     step2.add_argument('-nb_hits',          help='max nb of hits per species [default = 6]', metavar='', type=int, default=6)
     step2.add_argument('-max_gap',          help='max fraction of gap per position [default = 0.7]', metavar='', type=float, default=0.7)
     step2.add_argument('-phylogenies',      help='phylogenetic method: \'nj\' (neighbor joining), \'me\' (minimum evolution) or \'ml\' (maximum likelihood) [default = \'nj\']', metavar='', choices=['nj','me','ml'], default= 'nj')
-    step2.add_argument('-subthreads',       help='number of subthreads [default = 10]', metavar='', type=int, default=10)
+    step2.add_argument('-splits',           help='number of file splits for FastTree [default = 10]', metavar='', type=int, default=10)
     
     step3 = parser.add_argument_group(' STEP 3  network analysis')
     step3.add_argument('-sp_overlap',       help='max ratio of overlapping species in phylogenetic trees [default = 0.5]', metavar='', type=float, default=0.5)
@@ -71,7 +71,7 @@ def parse_args():
     
     return args.steps, args.threads, \
     args.dir, args.ext, args.kmer_size, args.kmer_min_aa, \
-    args.e_value, args.nb_hits, args.path_diamond, args.path_fasttree, args.max_gap, args.phylogenies, args.subthreads, \
+    args.e_value, args.nb_hits, args.path_diamond, args.path_fasttree, args.max_gap, args.phylogenies, args.splits, \
     args.sp_overlap, args.min_weight, args.min_nb_hits, args.chimeric_shared, args.chimeric_nb_sp, \
     args.ratio_ortho, args.not_same_sp
 
