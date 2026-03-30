@@ -255,7 +255,7 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
     ## perform local search against each database
     for file_db in list_files:
         search_output = index + '_' + file_db.replace('.fas','.gz')
-        subprocess.check_output(path_diamond + ' blastp --quiet --threads 1 --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
+        subprocess.check_output(path_diamond + ' blastp --quiet --threads ' + str(max(1, int(nb_threads/len(list_files)))) + ' --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
                 --compress 1 --more-sensitive -e ' + str(evalue) + ' -o ' + str(index_dir / search_output) + ' --outfmt 6 qseqid sseqid qstart qend sstart cigar 2>&1', shell=True)
     
     ## get all DIAMOND output files
