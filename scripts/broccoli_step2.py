@@ -164,7 +164,7 @@ def multithread_process_file(l_file, n_threads, n_splits=10):
     # start multithreading
     files_start = zip(l_file, itertools.repeat(n_splits), itertools.repeat(out_dir), itertools.repeat(l_file), itertools.repeat(path_diamond), itertools.repeat(db_dir),
             itertools.repeat(max_per_species), itertools.repeat(evalue), itertools.repeat(all_species), itertools.repeat(name_2_sp_phylip_seq),
-            itertools.repeat(trim_thres), itertools.repeat(phylo_method), itertools.repeat(path_fasttree))
+            itertools.repeat(trim_thres), itertools.repeat(phylo_method), itertools.repeat(path_fasttree), itertools.repeat(n_threads))
     with ThreadPool(n_threads) as pool:
         tmp_res = pool.starmap_async(process_file, files_start, chunksize=1)
         results_2 = tmp_res.get()
@@ -241,7 +241,7 @@ def get_positions(ref_name, hits, trim_thres):
 
 
 def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, max_per_species, evalue, all_species, name_2_sp_phylip_seq, trim_thres,
-                 phylo_method, path_fasttree):       
+                 phylo_method, path_fasttree, n_threads):  
     ## extract index
     logger.info("Process file: %s" % file)
     index = file.split('.')[0]
@@ -255,7 +255,7 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
     ## perform local search against each database
     for file_db in list_files:
         search_output = index + '_' + file_db.replace('.fas','.gz')
-        subprocess.check_output(path_diamond + ' blastp --quiet --threads ' + str(max(1, int(nb_threads/len(list_files)))) + ' --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
+        subprocess.check_output(path_diamond + ' blastp --quiet --threads ' + str(max(1, int(n_threads/len(list_files)))) + ' --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
                 --compress 1 --more-sensitive -e ' + str(evalue) + ' -o ' + str(index_dir / search_output) + ' --outfmt 6 qseqid sseqid qstart qend sstart cigar 2>&1', shell=True)
     
     ## get all DIAMOND output files
