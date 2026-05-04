@@ -5,3 +5,6 @@ scripts/__pycache__/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# AI tools
+CLAUDE.md
