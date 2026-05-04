@@ -52,14 +52,14 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt, ns):
     global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
     evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, ns
 
-    print('\n --- STEP 2: phylomes\n')
-    print(' # parameters')
-    print(' e_value     : ' + str(evalue))
-    print(' nb_hits     : ' + str(max_per_species))
-    print(' gaps        : ' + str(trim_thres))
-    print(' phylogenies : ' + phylo_method.replace('nj','neighbor joining').replace('me','minimum evolution').replace('ml','maximum likelihood'))
-    print(' threads     : ' + str(nb_threads))
-    print(' splits      : ' + str(nb_splits))
+    logger.info('\n --- STEP 2: phylomes\n')
+    logger.info(' # parameters')
+    logger.info(' e_value     : ' + str(evalue))
+    logger.info(' nb_hits     : ' + str(max_per_species))
+    logger.info(' gaps        : ' + str(trim_thres))
+    logger.info(' phylogenies : ' + phylo_method.replace('nj','neighbor joining').replace('me','minimum evolution').replace('ml','maximum likelihood'))
+    logger.info(' threads     : ' + str(nb_threads))
+    logger.info(' splits      : ' + str(nb_splits))
        	
     ## create output directory (or empty it if it already exists)
     global out_dir
