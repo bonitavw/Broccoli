@@ -22,11 +22,13 @@ import sys
 import collections
 import csv
 import subprocess
+import logging
 import gzip
 import math
 import re
 import shutil
 import itertools
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import Pool as ThreadPool 
 from pathlib import Path
 from scripts import utils
@@ -36,21 +38,28 @@ except:
     sys.exit("\n            ERROR: the ete3 library is not installed\n\n")
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
+logger = logging.getLogger("broccoli")
 
-def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
+def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt, ns):
 
     # convert the parameters to global variables (horrible hack)
-    global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads
-    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads = eval, msp, pdia, pfas, tt, pm, nt
+    global evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits
+    evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits = eval, msp, pdia, pfas, tt, pm, nt, ns
 
-    print('\n --- STEP 2: phylomes\n')
-    print(' # parameters')
-    print(' e_value     : ' + str(evalue))
-    print(' nb_hits     : ' + str(max_per_species))
-    print(' gaps        : ' + str(trim_thres))
-    print(' phylogenies : ' + phylo_method.replace('nj','neighbor joining').replace('me','minimum evolution').replace('ml','maximum likelihood'))
-    print(' threads     : ' + str(nb_threads))
+    logger.info('\n --- STEP 2: phylomes\n')
+    logger.info(' # parameters')
+    logger.info(' e_value     : ' + str(evalue))
+    logger.info(' nb_hits     : ' + str(max_per_species))
+    logger.info(' gaps        : ' + str(trim_thres))
+    logger.info(' phylogenies : ' + phylo_method.replace('nj','neighbor joining').replace('me','minimum evolution').replace('ml','maximum likelihood'))
+    logger.info(' threads     : ' + str(nb_threads))
+    logger.info(' splits      : ' + str(nb_splits))
        	
     ## create output directory (or empty it if it already exists)
     global out_dir
@@ -61,9 +70,10 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     
     ## check directory input data
     global list_files
-    print('\n # check input files')
+    logger.info('\n # check input files')
     list_files = pre_checking_data(Path('dir_step1'))
-    
+   
+    logger.info(list_files)
     ## load all sequences
     global name_2_sp_phylip_seq, all_species
     name_2_sp_phylip_seq, all_species = create_dict_seq(list_files)
@@ -72,19 +82,22 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt):
     global db_dir
     db_dir = out_dir / 'databases'
     db_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Creating databases")
     multithread_databases(list_files, nb_threads)
     
     ## process each proteome
-    print('\n # build phylomes ... be patient')
-    multithread_process_file(list_files, nb_threads)
-    
+    logger.info('\n # build phylomes ... be patient')
+    multithread_process_file(list_files, nb_threads, nb_splits)
+   
+    logger.info("Saving process")
     ## save prot 2 species dict (needed for steps 3 and 4)
     save_prot_2_sp(name_2_sp_phylip_seq)
-    
+   
+    logger.info("Deleting of database directory")
     # delete databases directory 
     shutil.rmtree(db_dir)
     
-    print(' done\n')
+    logger.info(' done\n')
 
     
 def pre_checking_data(directory):
@@ -104,7 +117,7 @@ def pre_checking_data(directory):
     if len(list_files) == 0:
         sys.exit("\n            ERROR STEP 2: there is no input fasta file (*.fas) in the directory dir_step1/\n\n")
     else:
-        print (' ' + str(len(list_files)) + ' input fasta files')
+        logger.info (' ' + str(len(list_files)) + ' input fasta files')
             
     return list_files
 
@@ -126,7 +139,7 @@ def create_dict_seq(l_files):
                 # save all within a tuple
                 d_seq[name_seq] = (sp, phylip_name, seq)
     
-    print (' ' + str(len(d_seq)) + ' sequences')
+    logger.info (' ' + str(len(d_seq)) + ' sequences')
     return d_seq, d_sp
 
 
@@ -143,30 +156,29 @@ def multithread_databases(l_file, n_threads):
 def prepare_databases(file, db_dir, path_diamond):
     input_file = str(Path('dir_step1') / file)
     database_path = str(db_dir / file.replace('.fas','.db'))
+    logger.info("Create database with file: %s" % file)
     subprocess.check_output(path_diamond + ' makedb --in ' + input_file + ' --db ' + database_path + ' 2>&1', shell=True)
 
 
-def multithread_process_file(l_file, n_threads):
+def multithread_process_file(l_file, n_threads, n_splits=10):
     # start multithreading
-    files_start = zip(l_file, itertools.repeat(out_dir), itertools.repeat(l_file), itertools.repeat(path_diamond), itertools.repeat(db_dir),
+    files_start = zip(l_file, itertools.repeat(n_splits), itertools.repeat(out_dir), itertools.repeat(l_file), itertools.repeat(path_diamond), itertools.repeat(db_dir),
             itertools.repeat(max_per_species), itertools.repeat(evalue), itertools.repeat(all_species), itertools.repeat(name_2_sp_phylip_seq),
-            itertools.repeat(trim_thres), itertools.repeat(phylo_method), itertools.repeat(path_fasttree))
-    pool = ThreadPool(n_threads) 
-    tmp_res = pool.starmap_async(process_file, files_start, chunksize=1)
-    results_2 = tmp_res.get()
-    pool.close() 
-    pool.join()
+            itertools.repeat(trim_thres), itertools.repeat(phylo_method), itertools.repeat(path_fasttree), itertools.repeat(n_threads))
+    with ThreadPool(n_threads) as pool:
+        tmp_res = pool.starmap_async(process_file, files_start, chunksize=1)
+        results_2 = tmp_res.get()
     
     # load species dict
     dict_species = utils.get_pickle(Path('dir_step1') / 'species_index.pic')
     
     # create log file
     log_file = open(out_dir / 'log_step2.txt', 'w+')
-    log_file.write('#species_file	nb_phylo	nb_NO_phylo	nb_empty_ali_ali	nb_pbm_tree\n')
+    log_file.write('#species_file\tnb_phylo\tnb_NO_phylo\tnb_empty_ali_ali\tnb_pbm_tree\n')
     
     # save log
     for l in results_2:
-        log_file.write(dict_species[l[0]] + '	' + '	'.join(l[1:]) + '\n')
+        log_file.write(dict_species[l[0]] + '\t' + '\t'.join(l[1:]) + '\n')
     log_file.close()
 
 
@@ -228,10 +240,13 @@ def get_positions(ref_name, hits, trim_thres):
     return good
 
 
-def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_species, evalue, all_species, name_2_sp_phylip_seq, trim_thres,
-                 phylo_method, path_fasttree):       
+def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, max_per_species, evalue, all_species, name_2_sp_phylip_seq, trim_thres,
+                 phylo_method, path_fasttree, n_threads):  
     ## extract index
+    logger.info("Process file: %s" % file)
     index = file.split('.')[0]
+    
+    logger.info("phylome | %s diamond alignments" % file)
     
     ## create output directory
     index_dir = out_dir / index
@@ -240,12 +255,14 @@ def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_specie
     ## perform local search against each database
     for file_db in list_files:
         search_output = index + '_' + file_db.replace('.fas','.gz')
-        subprocess.check_output(path_diamond + ' blastp --quiet --threads 1 --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
+        subprocess.check_output(path_diamond + ' blastp --quiet --threads ' + str(max(1, int(n_threads/len(list_files)))) + ' --db ' + str(db_dir / file_db.replace('.fas','.db')) + ' --max-target-seqs ' + str(max_per_species) + ' --query ' + str(Path('dir_step1') / file) + ' \
                 --compress 1 --more-sensitive -e ' + str(evalue) + ' -o ' + str(index_dir / search_output) + ' --outfmt 6 qseqid sseqid qstart qend sstart cigar 2>&1', shell=True)
     
     ## get all DIAMOND output files
     p = index_dir.glob('*.gz')
     tmp_l = [x for x in p if x.is_file()]
+
+    logger.info("phylome | %s diamond concatenate" % file)
 
     ## get all hits in a dict of list
     all_output = collections.defaultdict(list)
@@ -262,8 +279,10 @@ def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_specie
     nb_empty_ali  = 0
     all_alis = dict()
     no_phylo = dict()
+
+    logger.info("phylome | %s alignment post-processing, n=%i" % (file, len(all_output)))
     
-    for prot in all_output:
+    for prot_n,prot in enumerate(all_output):
         ## variable for reduced list of output
         reduced = list()
         
@@ -355,15 +374,25 @@ def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_specie
     ## save similarity_ortho groups to file
     blast_ortho_file = index + '_similarity_ortho.pic'
     utils.save_pickle(out_dir / 'dict_similarity_ortho' / blast_ortho_file, no_phylo)
+
+    logger.info("phylome | %s save alignments" % file)
     
     ## save all alignments to file
-    name_ali_file = 'alis_' + index + '.phy'
-    write_ali = open(out_dir / name_ali_file, 'w+')
+    # Split alignments into multiple files using num_splits
+    split_size = (len(all_alis) + num_splits - 1) // num_splits  # Ceiling division
     all_ref_prot = list()
-    for ref_prot, ali in all_alis.items():
-        write_ali.write(ali + '\n')
-        all_ref_prot.append(ref_prot)
-    write_ali.close()
+    items = list(all_alis.items())
+    ali_filenames = []
+    for split_idx in range(num_splits):
+        start = split_idx * split_size
+        end = min(start + split_size, len(items))
+        split_items = items[start:end]
+        name_ali_file = f'alis_{index}_{split_idx}.phy'
+        ali_filenames.append(name_ali_file)
+        with open(out_dir / name_ali_file, 'w+') as write_ali:
+            for ref_prot, ali in split_items:
+                write_ali.write(ali + '\n')
+                all_ref_prot.append(ref_prot)
     
     # free memory
     nb_alis = len(all_alis)
@@ -377,23 +406,66 @@ def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_specie
         insert = '-noml'
     elif phylo_method == 'ml':
         insert = ''
+
+    logger.info("phylome | %s run phylogenetic trees, n=%i..." % (file, nb_alis))
     
     ## perform phylogenetic analyses and root trees
     all_trees  = dict()
     nb_pbm_tree = 0
-    
+   
+    def run_fasttree(cmd):
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            output = [line.strip() for line in proc.stdout]
+            proc.stdout.close()
+            retcode = proc.wait()
+            if retcode != 0:
+                stderr = proc.stderr.read()
+                logger.error(f"FastTree {' '.join(cmd)} returned errors ({retcode}): {stderr}")
+            return output
+        except Exception as e:
+            logger.error(f"Exception running FastTree: {e}")
+            return []
+
+    a3_results = []
     # case there are phylogenetic analyses to perform (FastTree crashes if empty alignment)
     if nb_phylo > 0:
-        a = subprocess.check_output(path_fasttree + ' -quiet -nosupport -fastest -bionj -pseudo ' + insert + ' -n ' + str(nb_alis) + ' ' + str(Path(out_dir / name_ali_file)) + ' 2>&1', shell=True)
-        a2 = a.strip().decode("utf-8")
-        a3 = a2.split('\n')
-        c = -1
-        for line in a3:
-            # case the line is in the form 'Ignored unknown character ...' or 'WARNING! 100.0% NUCLEOTIDE CHARACTERS'
-            if line.startswith('Ign') or line.startswith('WARNING'):
-                pass
+        with ThreadPoolExecutor(max_workers=num_splits) as executor:
+            futures = {}
+            for split_idx, name_ali_file in enumerate(ali_filenames):
+                cmd = [
+                    path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
+                ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
+                futures[executor.submit(run_fasttree, cmd)] = split_idx
+            for future in as_completed(futures):
+                split_idx = futures[future]
+                try:
+                    a3_results.append((split_idx, future.result()))
+                except Exception as e:
+                    logger.error(f"Exception in FastTree future: {e}")
+                    a3_results.append((split_idx, []))
+    # Sort results by split index and flatten
+    a3_results.sort(key=lambda x: x[0])
+    a3 = []
+    for _, tree_lines in a3_results:
+        a3.extend(tree_lines)
+
+    c = -1
+
+    logger.info("phylome | %s process phylogenetic trees, n=%i" % (file, len(a3)))
+
+    for line in a3:
+        # case the line is in the form 'Ignored unknown character ...' or 'WARNING! 100.0% NUCLEOTIDE CHARACTERS'
+        if line.startswith('Ign') or line.startswith('WARNING'):
+            pass
+        else:
+            c += 1
+            if not line.startswith('('):
+                nb_pbm_tree += 1            
+                # security
+                if nb_pbm_tree > 100:
+                    sys.exit("\n            ERROR STEP 2: too many errors in phylogenetic analyses -> stopped\n\n")
             else:
-                c += 1
                 if not line.startswith('('):
                     nb_pbm_tree += 1            
                     # security
@@ -420,9 +492,9 @@ def process_file(file, out_dir, list_files, path_diamond, db_dir, max_per_specie
     
     ## clean directory
     # delete ali file
-    Path.unlink(out_dir / name_ali_file)
+    # Path.unlink(out_dir / name_ali_file)
     # delete Diamond outputs
-    shutil.rmtree(index_dir)
+    # shutil.rmtree(index_dir)
     
     return [index, str(nb_phylo), str(nb_NO_phylo), str(nb_empty_ali), str(nb_pbm_tree)]
       

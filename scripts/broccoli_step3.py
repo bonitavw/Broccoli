@@ -33,7 +33,15 @@ try:
     from ete3 import PhyloTree
 except:
     sys.exit("\n            ERROR: the ete3 library is not installed\n\n")
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger("broccoli")
 
 
 def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
@@ -42,14 +50,14 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     global sp_overlap, min_weight, min_nb_hits, chimeric_edges, chimeric_species, nb_threads
     sp_overlap, min_weight, min_nb_hits, chimeric_edges, chimeric_species, nb_threads = rov, mw, mnh, lm, nbsp, nt
     
-    print('\n --- STEP 3: network analysis\n')
-    print(' ## parameters')
-    print(' species overlap  : ' + str(sp_overlap))
-    print(' min edge weight  : ' + str(min_weight))
-    print(' min nb hits      : ' + str(min_nb_hits))
-    print(' chimeric edges   : ' + str(chimeric_edges))
-    print(' chimeric species : ' + str(chimeric_species))
-    print(' threads          : ' + str(nb_threads))
+    logger.info('\n --- STEP 3: network analysis\n')
+    logger.info(' ## parameters')
+    logger.info(' species overlap  : ' + str(sp_overlap))
+    logger.info(' min edge weight  : ' + str(min_weight))
+    logger.info(' min nb hits      : ' + str(min_nb_hits))
+    logger.info(' chimeric edges   : ' + str(chimeric_edges))
+    logger.info(' chimeric species : ' + str(chimeric_species))
+    logger.info(' threads          : ' + str(nb_threads))
 
     ## create output directory (or empty it if it already exists)
     global out_dir
@@ -69,7 +77,7 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     ## load prot_name 2 species dict (string version)
     prot_2_sp = utils.get_pickle(Path('dir_step2') / 'prot_str_2_species.pic')
     
-    print('\n ## get ortho and para')
+    logger.info('\n ## get ortho and para')
     ## extract ortho from dir_step2
     extract_ortho(files_trees)
     
@@ -80,13 +88,13 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     ## load prot_name 2 species dict (integer version)
     prot_2_sp = utils.get_pickle(Path('dir_step2') / 'prot_int_2_species.pic')
     
-    print('\n ## network analysis')
+    logger.info('\n ## network analysis')
     ## build network
     global all_nodes, all_edges 
     all_nodes, all_edges = build_network()
     
     ## load all search outputs
-    print(' load similarity search outputs')
+    logger.info(' load similarity search outputs')
     global other_hits
     other_hits = load_search_outputs(Path('dir_step2') / 'dict_output', '_output.pic')
 
@@ -111,11 +119,11 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     save_outputs(cleaned_communities, all_chimeric_prot, all_species) 
     
     ## clean dir
-    Path.unlink(out_dir / 'd_ortho.pic')
-    Path.unlink(out_dir / 'd_para.pic')
-    Path.unlink(out_dir / 's_filter.pic')
+    # Path.unlink(out_dir / 'd_ortho.pic')
+    # Path.unlink(out_dir / 'd_para.pic')
+    # Path.unlink(out_dir / 's_filter.pic')
     
-    print('')   
+    logger.info('')
     
    
 def pre_checking(directory):
@@ -140,7 +148,7 @@ def pre_checking(directory):
 
 def extract_ortho(l_trees):
         
-    print(' extract ortho from similarity')
+    logger.info(' extract ortho from similarity')
     # load pickle files
     tmp_d = utils.get_multi_pickle(Path('dir_step2') / 'dict_similarity_ortho', '_similarity_ortho.pic')
 
@@ -156,7 +164,7 @@ def extract_ortho(l_trees):
     path_tmp_ortho = utils.create_out_dir('./dir_step3/tmp_ortho')
     
     # extract ortho from tree files
-    print(' extract ortho from trees')    
+    logger.info(' extract ortho from trees')
     files_start = zip(l_trees, itertools.repeat(path_tmp), itertools.repeat(path_tmp_ortho), itertools.repeat(prot_2_sp), itertools.repeat(sp_overlap))    
     pool = Pool(nb_threads) 
     tmp_res = pool.starmap_async(extract_ortho_from_trees, files_start, chunksize=1)
@@ -171,10 +179,10 @@ def extract_ortho(l_trees):
 
     # free memory
     content_pickle = None
-    shutil.rmtree(path_tmp_ortho)
+    # shutil.rmtree(path_tmp_ortho)
 
     # remove ortho found only once
-    print(' remove ortho found only once')
+    logger.info(' remove ortho found only once')
     d_ortho = {k:v for k,v in d_ortho.items() if v > 1}
     
     # save it to file
@@ -286,7 +294,7 @@ def extract_para(l_trees):
     path_tmp_para  = utils.create_out_dir('./dir_step3/tmp_para')
     
     # extract para from tree files
-    print(' extract para from trees')   
+    logger.info(' extract para from trees')
     files_start = zip(l_trees, itertools.repeat(set_filter), itertools.repeat(path_tmp_para), itertools.repeat(path_tmp))    
     pool = Pool(nb_threads) 
     tmp_res = pool.starmap_async(extract_para_from_trees, files_start, chunksize=1)
@@ -310,8 +318,8 @@ def extract_para(l_trees):
     
     # free memory
     set_filter = None
-    shutil.rmtree(path_tmp_para)
-    shutil.rmtree(path_tmp)
+    # shutil.rmtree(path_tmp_para)
+    # shutil.rmtree(path_tmp)
 
 
 def extract_para_from_trees(filename, set_filter, path_tmp_para, path_tmp):
@@ -358,7 +366,7 @@ def build_network():
     d_ortho_pairs = utils.get_pickle(out_dir / 'd_ortho.pic')
     d_para_pairs  = utils.get_pickle(out_dir / 'd_para.pic')
     
-    print(' build network:')
+    logger.info(' build network:')
     for k, nb_ortho in d_ortho_pairs.items():
         # build edge and nodes if nb ortho superior to nb para
         if nb_ortho > d_para_pairs[k]:
@@ -374,8 +382,8 @@ def build_network():
             nb_edges += 1
     
     # print results
-    print('      _ ' + str(len(d_nodes)) + ' nodes')
-    print('      _ ' + str(nb_edges) + ' edges')
+    logger.info('      _ ' + str(len(d_nodes)) + ' nodes')
+    logger.info('      _ ' + str(nb_edges) + ' edges')
     
     # save to log file
     log_file.write('#network size:\n' + str(len(d_nodes)) + ' nodes\n' + str(nb_edges) + ' edges\n\n')
@@ -398,7 +406,7 @@ def build_network():
             try:
                 vector_weights[r_weight] += 1
             except:
-                print(r_weight)
+                logger.warning('unexpected r_weight value: %s', r_weight)
             # decide to remove edge or not based on the minimum edge weight
             if weight < min_weight:
                 to_remove.add(node2)
@@ -440,7 +448,7 @@ def multithread_lcc(d_nodes, n_threads):
     new_list_of_lists = [list_nodes[i::nb_thr] for i in range(nb_thr)]  
         
     # start multithreading
-    print(' compute lcc for each node')
+    logger.info(' compute lcc for each node')
     files_start = zip(new_list_of_lists, itertools.repeat(all_edges), itertools.repeat(limit_degree), itertools.repeat(limit_nb_max))
     pool = Pool(nb_thr) 
     tmp_res = pool.starmap_async(calculate_lcc, files_start, chunksize=1)
@@ -538,7 +546,7 @@ def load_search_outputs(dir_, str_):
 
 def analyse_cc(l_cc):
     
-    print(' apply LPA and corrections:')    
+    logger.info(' apply LPA and corrections:')
     final_list  = list()
     d_chimeric  = dict()
     
@@ -586,9 +594,9 @@ def analyse_cc(l_cc):
                     d_chimeric[k] = list()
     
     # print results
-    print('      _ ' + str(len(l_cc)) + ' connected components')
-    print('      _ ' + str(len(final_list)) + ' communities')
-    print('      _ ' + str(len(d_chimeric)) + ' chimeric proteins')    
+    logger.info('      _ ' + str(len(l_cc)) + ' connected components')
+    logger.info('      _ ' + str(len(final_list)) + ' communities')
+    logger.info('      _ ' + str(len(d_chimeric)) + ' chimeric proteins')
     
     # save to log file
     log_file.write('#network analysis:\n' + str(len(l_cc)) + ' connected components\n' + str(len(final_list)) + ' communities\n' + str(len(d_chimeric)) + ' chimeric proteins')
@@ -742,7 +750,7 @@ def remove_spurious_hits(l_com):
         else:
             l2_com.append(com)
             
-    print('      _ ' + str(nb_removed) + ' spurious hits removed') 
+    logger.info('      _ ' + str(nb_removed) + ' spurious hits removed')
     return l2_com
 
 

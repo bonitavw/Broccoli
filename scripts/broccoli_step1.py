@@ -24,7 +24,15 @@ import itertools
 from multiprocessing import Pool as ThreadPool 
 from pathlib import Path
 from scripts import utils
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger("broccoli")
 
 
 def step1_kmer_clustering(dir, ext, lk, ma, nt):
@@ -33,23 +41,23 @@ def step1_kmer_clustering(dir, ext, lk, ma, nt):
     global directory, extension, length_kmer, min_aa, nb_threads
     directory, extension, length_kmer, min_aa, nb_threads = Path(dir), ext, lk, ma, nt
 
-    print('\n --- STEP 1: kmer clustering\n')
-    print(' # parameters')
-    print(' input dir     : ' + str(directory))
-    print(' kmer size     : ' + str(length_kmer))
-    print(' kmer nb aa    : ' + str(min_aa))
+    logger.info('\n --- STEP 1: kmer clustering\n')
+    logger.info(' # parameters')
+    logger.info(' input dir     : ' + str(directory))
+    logger.info(' kmer size     : ' + str(length_kmer))
+    logger.info(' kmer nb aa    : ' + str(min_aa))
 
     ## create output directory (delete it first if already exists)
     global out_dir
     out_dir = utils.create_out_dir('dir_step1')
     
     ## check directory and files
-    print('\n # check input files')
+    logger.info('\n # check input files')
     global dict_files, list_files, list_start
     dict_files, list_files, list_start = pre_checking(directory, extension)
     
 	## analyse each fasta file (multithreading)
-    print ('\n # kmer clustering\n ' + str(len(list_files)) + ' proteomes on ' + str(nb_threads) + ' threads')
+    logger.info('\n # kmer clustering\n ' + str(len(list_files)) + ' proteomes on ' + str(nb_threads) + ' threads')
     files_start = zip(list_files, list_start, list(range(len(list_files))), itertools.repeat(directory), 
                   itertools.repeat(length_kmer), itertools.repeat(min_aa), itertools.repeat(out_dir))
     pool = ThreadPool(nb_threads) 
@@ -77,8 +85,8 @@ def step1_kmer_clustering(dir, ext, lk, ma, nt):
     utils.save_pickle(out_dir / 'original_names.pic', names)
     utils.save_pickle(out_dir / 'species_index.pic', dict_files)
     
-    print(' -> ' + str(nb_final) + ' proteins saved for the next step')
-    print ('')
+    logger.info(' -> ' + str(nb_final) + ' proteins saved for the next step')
+    logger.info('')
  
      
 def pre_checking(directory, ext):
@@ -131,7 +139,7 @@ def pre_checking(directory, ext):
     
     # if duplicate names, print warning message and save duplicate names to file
     if duplicates:
-        print('    ----------------------------------------------------------------------------------\n    | WARNING: some protein names are present multiple times (they should be unique) |\n    |          see file duplicate_names.txt in dir_step1                             |\n    ----------------------------------------------------------------------------------')
+        logger.warning('    ----------------------------------------------------------------------------------\n    | WARNING: some protein names are present multiple times (they should be unique) |\n    |          see file duplicate_names.txt in dir_step1                             |\n    ----------------------------------------------------------------------------------')
         # create log file
         dupli_file = open(out_dir / 'duplicate_names.txt','w+')
         dupli_file.write('#protein_name	file1	file2\n') 
@@ -145,8 +153,8 @@ def pre_checking(directory, ext):
         d_files[new_name] = k
 
     # print log
-    print(' ' + str(len(l_files)) + ' input files')
-    print(' ' + str(counter) + ' sequences')
+    logger.info(' ' + str(len(l_files)) + ' input files')
+    logger.info(' ' + str(counter) + ' sequences')
     
     return d_files, l_files, l_start
 

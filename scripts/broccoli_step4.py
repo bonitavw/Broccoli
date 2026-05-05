@@ -29,7 +29,15 @@ try:
     from ete3 import PhyloTree
 except:
     sys.exit("\n            ERROR: the ete3 library is not installed\n\n")
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger("broccoli")
 
 
 def step4_orthologous_pairs(lo, nsp, nt):
@@ -38,12 +46,12 @@ def step4_orthologous_pairs(lo, nsp, nt):
     global limit_ortho, not_same_sp, nb_threads
     limit_ortho, not_same_sp, nb_threads = lo, nsp, nt
 
-    print('\n --- STEP 4: orthologous pairs\n')
-    print(' ## parameters')
-    print(' ratio ortho  : ' + str(limit_ortho))
-    print(' not same sp  : ' + str(not_same_sp))
-    print(' threads      : ' + str(nb_threads))
-    print('\n ## load data')
+    logger.info('\n --- STEP 4: orthologous pairs\n')
+    logger.info(' ## parameters')
+    logger.info(' ratio ortho  : ' + str(limit_ortho))
+    logger.info(' not same sp  : ' + str(not_same_sp))
+    logger.info(' threads      : ' + str(nb_threads))
+    logger.info('\n ## load data')
 
     ## create output directory (delete it first if already exists)
     global out_dir
@@ -65,10 +73,10 @@ def step4_orthologous_pairs(lo, nsp, nt):
     prot_2_sp = utils.get_pickle(Path('dir_step2') / 'prot_str_2_species.pic')
     
     ## analyse OGs 1 by 1 and save ortho relationships in file
-    print('\n ## analyse ' + str(len(all_OGs)) + ' orthologous groups 1 by 1')
+    logger.info('\n ## analyse ' + str(len(all_OGs)) + ' orthologous groups 1 by 1')
     multithread_process_OG(all_OGs, nb_threads, original_name, combined_prot, not_same_sp)
 
-    print(' done\n')
+    logger.info(' done\n')
     
 
 def pre_checking(directory):
@@ -92,13 +100,13 @@ def pre_checking(directory):
 
 
 def load_all_data(f_blast, f_tree):
-    print(' load NO tree results')  
+    logger.info(' load NO tree results')
     no_tree = utils.get_multi_pickle(Path('dir_step2') / 'dict_similarity_ortho', '_similarity_ortho.pic')
            
-    print(' load tree results') 
+    logger.info(' load tree results')
     trees = utils.get_multi_pickle(Path('dir_step2') / 'dict_trees', '_trees.pic')
     
-    print(' load OGs')    
+    logger.info(' load OGs')
     OGs = utils.get_pickle(Path('dir_step3') / 'OGs_in_network.pic')
     l_OGs = [l for l in OGs.values()]
     
