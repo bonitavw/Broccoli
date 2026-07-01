@@ -383,12 +383,14 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
     all_ref_prot = list()
     items = list(all_alis.items())
     ali_filenames = []
+    ali_counts = []
     for split_idx in range(num_splits):
         start = split_idx * split_size
         end = min(start + split_size, len(items))
         split_items = items[start:end]
         name_ali_file = f'alis_{index}_{split_idx}.phy'
         ali_filenames.append(name_ali_file)
+        ali_counts.append(len(split_items))
         with open(out_dir / name_ali_file, 'w+') as write_ali:
             for ref_prot, ali in split_items:
                 write_ali.write(ali + '\n')
@@ -433,9 +435,11 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
         with ThreadPoolExecutor(max_workers=num_splits) as executor:
             futures = {}
             for split_idx, name_ali_file in enumerate(ali_filenames):
+                if ali_counts[split_idx] == 0:
+                    continue
                 cmd = [
                     path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
-                ] + insert.split() + ['-n', str(nb_alis), str(Path(out_dir) / name_ali_file)]
+                ] + insert.split() + ['-n', str(ali_counts[split_idx]), str(Path(out_dir) / name_ali_file)]
                 futures[executor.submit(run_fasttree, cmd)] = split_idx
             for future in as_completed(futures):
                 split_idx = futures[future]
