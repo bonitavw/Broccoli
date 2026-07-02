@@ -46,7 +46,13 @@ python broccoli.py -dir example_dataset
 
 Broccoli will store the temporary and output files in 4 directories named `dir_step1` to `dir_step4` (one for each step) located in the current directory.
 
-If a run is interrupted, or you want to change the parameters of a later step without redoing earlier ones, run Broccoli again from the same directory with the `-resume` option: any step whose `dir_stepN` output is already complete (marked internally by a `.broccoli_done` file written at the end of a successful step) will be skipped. If an earlier requested step has to rerun (its marker is missing, or you deleted it to force a rerun), all later requested steps automatically rerun too, since they depend on that step's output. Note that `-resume` does not detect parameter changes between runs for steps it decides to skip — delete the relevant `dir_stepN` directory (or just its `.broccoli_done` marker) to force that step to rerun with new parameters.
+If a run is interrupted, or you want to change the parameters of a later step without rerunning earlier ones, run Broccoli again from the same directory with the `-resume` option: 
+
+```
+python broccoli.py -dir example_dataset -resume
+```
+
+Any step whose `dir_stepN` output is already complete (marked internally by a `.broccoli_done` file written at the end of a successful step) will be skipped. If an earlier requested step has to rerun (its marker is missing, or you deleted it to force a rerun), all later requested steps automatically rerun too, since they depend on that step's output. Note that `-resume` does not detect parameter changes between runs for steps it decides to skip. Delete the relevant `dir_stepN` directory (or just its `.broccoli_done` marker) to force that step to rerun with the new parameters.
 
 ## Licence
 
