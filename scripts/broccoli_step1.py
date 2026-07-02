@@ -84,7 +84,9 @@ def step1_kmer_clustering(dir, ext, lk, ma, nt):
     utils.save_pickle(out_dir / 'combined_names.pic', combined)
     utils.save_pickle(out_dir / 'original_names.pic', names)
     utils.save_pickle(out_dir / 'species_index.pic', dict_files)
-    
+
+    utils.mark_step_done(out_dir)
+
     logger.info(' -> ' + str(nb_final) + ' proteins saved for the next step')
     logger.info('')
  

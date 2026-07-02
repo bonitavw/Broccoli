@@ -28,6 +28,7 @@ from scripts import broccoli_step1
 from scripts import broccoli_step2
 from scripts import broccoli_step3
 from scripts import broccoli_step4
+from scripts import utils
 
 
 ######################### functions
@@ -37,7 +38,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='            Broccoli v1.3', add_help=False, formatter_class=argparse.RawTextHelpFormatter, epilog=' \n')
     
     common = parser.add_argument_group(' general options')
-    common.add_argument('-steps',         help='steps to be performed, comma separated (default = \'1,2,3,4\')', metavar='', type=str, default='1,2,3,4')    
+    common.add_argument('-steps',         help='steps to be performed, comma separated (default = \'1,2,3,4\')', metavar='', type=str, default='1,2,3,4')
+    common.add_argument('-resume',        help='resume from existing dir_stepN outputs of a previous run in this directory, skipping steps already completed (default = off)', action="store_true")
     common.add_argument('-threads',       help='number of threads [default = 1]', metavar='', type=int, default=1)
     common.add_argument('-h','-help',     action="help", help="show this help message and exit")
     
@@ -68,8 +70,8 @@ def parse_args():
     step4.add_argument('-not_same_sp',      help='ignore ortho relationships between proteins of the same species (QfO benchmark)', action="store_true")
     
     args = parser.parse_args()
-    
-    return args.steps, args.threads, \
+
+    return args.steps, args.resume, args.threads, \
     args.dir, args.ext, args.kmer_size, args.kmer_min_aa, \
     args.e_value, args.nb_hits, args.path_diamond, args.path_fasttree, args.max_gap, args.phylogenies, args.splits, \
     args.sp_overlap, args.min_weight, args.min_nb_hits, args.chimeric_shared, args.chimeric_nb_sp, \
@@ -120,7 +122,7 @@ if __name__ == "__main__":
     start_time = time.time()  # Start timing
     
     ## get all arguments
-    pre_steps, nb_threads, \
+    pre_steps, resume, nb_threads, \
     directory, extension, length_kmer, min_aa, \
     evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_splits, \
     sp_overlap, min_weight, min_nb_hits, chimeric_shared, chimeric_nb_sp, \
@@ -136,26 +138,45 @@ if __name__ == "__main__":
     ## parse steps
     steps = parse_steps(pre_steps)
     
-    ## check if -dir option (cases of 1st step)
+    ## check if -dir option (cases of 1st step, unless resuming from an already completed step 1)
     if 1 in steps and directory is None:
-        sys.exit('\n            ERROR: you need to specify an input directory (see -help)\n\n')
-    
+        if not (resume and utils.is_step_done('dir_step1')):
+            sys.exit('\n            ERROR: you need to specify an input directory (see -help)\n\n')
+
     ## check path of executables if step 2 (diamond, fasttree)
     if 2 in steps:
         pre_checking_pgms(path_diamond, path_fasttree)
-        
-    ## execute the steps
+
+    ## execute the steps (with -resume, skip a step if already completed, until an earlier step reruns)
+    must_rerun = False
+
     if 1 in steps:
-        broccoli_step1.step1_kmer_clustering(directory, extension, length_kmer, min_aa, nb_threads)
+        if resume and not must_rerun and utils.is_step_done('dir_step1'):
+            print('STEP 1: dir_step1 already complete, skipped (resume)')
+        else:
+            broccoli_step1.step1_kmer_clustering(directory, extension, length_kmer, min_aa, nb_threads)
+            must_rerun = True
 
     if 2 in steps:
-        broccoli_step2.step2_phylomes(evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits)
-    
+        if resume and not must_rerun and utils.is_step_done('dir_step2'):
+            print('STEP 2: dir_step2 already complete, skipped (resume)')
+        else:
+            broccoli_step2.step2_phylomes(evalue, max_per_species, path_diamond, path_fasttree, trim_thres, phylo_method, nb_threads, nb_splits)
+            must_rerun = True
+
     if 3 in steps:
-        broccoli_step3.step3_orthology_network(sp_overlap, min_weight, min_nb_hits, chimeric_shared, chimeric_nb_sp, nb_threads)
-    
+        if resume and not must_rerun and utils.is_step_done('dir_step3'):
+            print('STEP 3: dir_step3 already complete, skipped (resume)')
+        else:
+            broccoli_step3.step3_orthology_network(sp_overlap, min_weight, min_nb_hits, chimeric_shared, chimeric_nb_sp, nb_threads)
+            must_rerun = True
+
     if 4 in steps:
-        broccoli_step4.step4_orthologous_pairs(limit_ortho, not_same_sp, nb_threads)
+        if resume and not must_rerun and utils.is_step_done('dir_step4'):
+            print('STEP 4: dir_step4 already complete, skipped (resume)')
+        else:
+            broccoli_step4.step4_orthologous_pairs(limit_ortho, not_same_sp, nb_threads)
+            must_rerun = True
     
     end_time = time.time()  # End timing
     elapsed = end_time - start_time

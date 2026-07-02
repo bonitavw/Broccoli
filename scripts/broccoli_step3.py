@@ -122,7 +122,9 @@ def step3_orthology_network(rov, mw, mnh, lm, nbsp, nt):
     # Path.unlink(out_dir / 'd_ortho.pic')
     # Path.unlink(out_dir / 'd_para.pic')
     # Path.unlink(out_dir / 's_filter.pic')
-    
+
+    utils.mark_step_done(out_dir)
+
     logger.info('')
     
    

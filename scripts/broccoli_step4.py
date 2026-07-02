@@ -76,6 +76,8 @@ def step4_orthologous_pairs(lo, nsp, nt):
     logger.info('\n ## analyse ' + str(len(all_OGs)) + ' orthologous groups 1 by 1')
     multithread_process_OG(all_OGs, nb_threads, original_name, combined_prot, not_same_sp)
 
+    utils.mark_step_done(out_dir)
+
     logger.info(' done\n')
     
 

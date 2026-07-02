@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 
-''' to create dir (and remove previous version if exists) ''' 
+''' to create dir (and remove previous version if exists) '''
 def create_out_dir(dir):
     p = Path(dir)
     if p.exists():
@@ -15,6 +15,19 @@ def create_out_dir(dir):
             os.system('rm -R ' + dir)
     p.mkdir()
     return p
+
+
+DONE_MARKER_NAME = ".broccoli_done"
+
+''' to mark a step's output directory as fully complete (for -resume) '''
+def mark_step_done(out_dir):
+    (Path(out_dir) / DONE_MARKER_NAME).touch()
+
+
+''' to check if a step's output directory is complete (for -resume) '''
+def is_step_done(dir_name):
+    p = Path(dir_name)
+    return p.exists() and (p / DONE_MARKER_NAME).exists()
 
 
 ''' to parse FASTA files '''

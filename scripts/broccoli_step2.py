@@ -94,9 +94,11 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt, ns):
     save_prot_2_sp(name_2_sp_phylip_seq)
    
     logger.info("Deleting of database directory")
-    # delete databases directory 
+    # delete databases directory
     shutil.rmtree(db_dir)
-    
+
+    utils.mark_step_done(out_dir)
+
     logger.info(' done\n')
 
     
