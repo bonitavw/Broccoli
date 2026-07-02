@@ -44,7 +44,7 @@ To test Broccoli with the small example dataset present in the directory `exampl
 python broccoli.py -dir example_dataset
 ```
 
-Broccoli will store the temporary and output files in 4 directories named `dir_step1` to `dir_step4` (one for each step) located in the current directory.
+Broccoli will store the temporary and output files in 4 directories named `dir_step1` to `dir_step4` (one for each step) located in the current directory. In `dir_step2` and `dir_step3`, scratch files used only internally by that step are kept in a `tmp` subdirectory. Once a run has finished successfully and you don't intend to rerun it, those `tmp` subdirectories can be safely deleted to save disk space.
 
 If a run is interrupted, or you want to change the parameters of a later step without rerunning earlier ones, run Broccoli again from the same directory with the `-resume` option: 
 

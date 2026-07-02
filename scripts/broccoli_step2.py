@@ -66,7 +66,8 @@ def step2_phylomes(eval, msp, pdia, pfas, tt, pm, nt, ns):
     out_dir = utils.create_out_dir('dir_step2')
     Path(out_dir / 'dict_trees').mkdir()
     Path(out_dir / 'dict_output').mkdir()
-    Path(out_dir / 'dict_similarity_ortho').mkdir()    
+    Path(out_dir / 'dict_similarity_ortho').mkdir()
+    Path(out_dir / 'tmp').mkdir()
     
     ## check directory input data
     global list_files
@@ -250,8 +251,8 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
     
     logger.info("phylome | %s diamond alignments" % file)
     
-    ## create output directory
-    index_dir = out_dir / index
+    ## create output directory (scratch space, safe to delete once the step succeeded)
+    index_dir = out_dir / 'tmp' / index
     index_dir.mkdir(parents=True, exist_ok=True)
     
     ## perform local search against each database
@@ -393,7 +394,7 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
         name_ali_file = f'alis_{index}_{split_idx}.phy'
         ali_filenames.append(name_ali_file)
         ali_counts.append(len(split_items))
-        with open(out_dir / name_ali_file, 'w+') as write_ali:
+        with open(out_dir / 'tmp' / name_ali_file, 'w+') as write_ali:
             for ref_prot, ali in split_items:
                 write_ali.write(ali + '\n')
                 all_ref_prot.append(ref_prot)
@@ -441,7 +442,7 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
                     continue
                 cmd = [
                     path_fasttree, '-quiet', '-nosupport', '-fastest', '-bionj', '-pseudo'
-                ] + insert.split() + ['-n', str(ali_counts[split_idx]), str(Path(out_dir) / name_ali_file)]
+                ] + insert.split() + ['-n', str(ali_counts[split_idx]), str(Path(out_dir) / 'tmp' / name_ali_file)]
                 futures[executor.submit(run_fasttree, cmd)] = split_idx
             for future in as_completed(futures):
                 split_idx = futures[future]
@@ -495,12 +496,6 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
     ## save trees to file
     tree_file = index + '_trees.pic'
     utils.save_pickle(out_dir / 'dict_trees' / tree_file, all_trees)
-    
-    ## clean directory
-    # delete ali file
-    # Path.unlink(out_dir / name_ali_file)
-    # delete Diamond outputs
-    # shutil.rmtree(index_dir)
     
     return [index, str(nb_phylo), str(nb_NO_phylo), str(nb_empty_ali), str(nb_pbm_tree)]
       
