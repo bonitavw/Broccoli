@@ -420,13 +420,13 @@ def process_file(file, num_splits, out_dir, list_files, path_diamond, db_dir, ma
    
     def run_fasttree(cmd):
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            # merge stderr into stdout so a single stream is drained
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             output = [line.strip() for line in proc.stdout]
             proc.stdout.close()
             retcode = proc.wait()
             if retcode != 0:
-                stderr = proc.stderr.read()
-                logger.error(f"FastTree {' '.join(cmd)} returned errors ({retcode}): {stderr}")
+                logger.error(f"FastTree {' '.join(cmd)} returned errors ({retcode})")
             return output
         except Exception as e:
             logger.error(f"Exception running FastTree: {e}")
