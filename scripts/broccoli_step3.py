@@ -167,12 +167,13 @@ def extract_ortho(l_trees):
     
     # extract ortho from tree files
     logger.info(' extract ortho from trees')
-    files_start = zip(l_trees, itertools.repeat(path_tmp), itertools.repeat(path_tmp_ortho), itertools.repeat(prot_2_sp), itertools.repeat(sp_overlap))    
-    pool = Pool(nb_threads) 
-    tmp_res = pool.starmap_async(extract_ortho_from_trees, files_start, chunksize=1)
-    pool.close() 
-    pool.join()            
-    
+    # the large objects (prot_2_sp, ...) are sent once per worker process via the initializer instead of once per task
+    with Pool(nb_threads, initializer=init_ortho_worker,
+              initargs=(path_tmp, path_tmp_ortho, prot_2_sp, sp_overlap)) as pool:
+        tmp_res = pool.map_async(extract_ortho_from_trees, l_trees, chunksize=1)
+        # get() so that any exception raised in a worker is propagated instead of silently ignored
+        tmp_res.get()
+
     # unpack ortho and save them
     for filename in l_trees:
         content_pickle = pickle.load(open(path_tmp_ortho / filename, 'rb'))
@@ -198,14 +199,22 @@ def extract_ortho(l_trees):
     utils.save_pickle(out_dir / 's_filter.pic', s_filter)
     
 
-def extract_ortho_from_trees(filename, path_tmp, path_tmp_ortho, prot_2_sp, sp_overlap):
+def init_ortho_worker(p_tmp, p_tmp_ortho, p_2_sp, overlap):
+    ''' runs once per worker process: bind the shared data as worker globals '''
+    global path_tmp, path_tmp_ortho, prot_2_sp, sp_overlap
+    path_tmp, path_tmp_ortho, prot_2_sp, sp_overlap = p_tmp, p_tmp_ortho, p_2_sp, overlap
+
+
+def extract_ortho_from_trees(filename):
     # prepare output variables
     l_ortho = list()
     l_ortho_para = list()
-    
+
     # load dict of trees
     tmp_d = utils.get_pickle(Path('dir_step2') / 'dict_trees' / filename)
-    
+
+    logger.info(' ortho | %s start, n=%i' % (filename, len(tmp_d)))
+
     # analyse trees 1 by 1
     for ref_leaf, newick in tmp_d.items():
         
@@ -237,10 +246,12 @@ def extract_ortho_from_trees(filename, path_tmp, path_tmp_ortho, prot_2_sp, sp_o
 
     # save ortho @ para
     utils.save_pickle(path_tmp / filename, l_ortho_para)
-    
+
     # save ortho
     utils.save_pickle(path_tmp_ortho / filename, l_ortho)
-    
+
+    logger.info(' ortho | %s done, %i pairs' % (filename, len(l_ortho)))
+
     return [0,0]
 
 
@@ -297,11 +308,12 @@ def extract_para(l_trees):
     
     # extract para from tree files
     logger.info(' extract para from trees')
-    files_start = zip(l_trees, itertools.repeat(set_filter), itertools.repeat(path_tmp_para), itertools.repeat(path_tmp))    
-    pool = Pool(nb_threads) 
-    tmp_res = pool.starmap_async(extract_para_from_trees, files_start, chunksize=1)
-    pool.close() 
-    pool.join()
+    # set_filter holds one large integer per ortholog pair and can reach several GB: send it once per worker process via the initializer
+    with Pool(nb_threads, initializer=init_para_worker,
+              initargs=(set_filter, path_tmp_para, path_tmp)) as pool:
+        tmp_res = pool.map_async(extract_para_from_trees, l_trees, chunksize=1)
+        # get() so that any exception raised in a worker is propagated instead of silently ignored
+        tmp_res.get()
 
     # combine results list para
     d_para = utils.get_pickle(out_dir / 'd_ortho.pic')
@@ -324,14 +336,22 @@ def extract_para(l_trees):
     # shutil.rmtree(path_tmp)
 
 
-def extract_para_from_trees(filename, set_filter, path_tmp_para, path_tmp):
-    
+def init_para_worker(s_filter, p_tmp_para, p_tmp):
+    ''' runs once per worker process: bind the shared data as worker globals '''
+    global set_filter, path_tmp_para, path_tmp
+    set_filter, path_tmp_para, path_tmp = s_filter, p_tmp_para, p_tmp
+
+
+def extract_para_from_trees(filename):
+
     # prepare list
     out_para = list()
 
     # load filename and save ortho@para
     tmp = open(path_tmp / filename, 'rb')
     content_pickle = pickle.load(tmp)
+
+    logger.info(' para | %s start, n=%i' % (filename, len(content_pickle)))
 
     # save para
     for st in content_pickle:
@@ -351,8 +371,10 @@ def extract_para_from_trees(filename, set_filter, path_tmp_para, path_tmp):
                     if reduced in set_filter:
                         out_para.append(int(combined_name))
     
-    # dump out_para 
+    # dump out_para
     utils.save_pickle(path_tmp_para / filename, out_para)
+
+    logger.info(' para | %s done, %i pairs' % (filename, len(out_para)))
 
     return [0,0]
 
@@ -451,13 +473,12 @@ def multithread_lcc(d_nodes, n_threads):
         
     # start multithreading
     logger.info(' compute lcc for each node')
-    files_start = zip(new_list_of_lists, itertools.repeat(all_edges), itertools.repeat(limit_degree), itertools.repeat(limit_nb_max))
-    pool = Pool(nb_thr) 
-    tmp_res = pool.starmap_async(calculate_lcc, files_start, chunksize=1)
-    results_2 = tmp_res.get()
-    pool.close() 
-    pool.join()   
-    
+    # send all_edges once per worker process via the initializer
+    with Pool(nb_thr, initializer=init_lcc_worker,
+              initargs=(all_edges, limit_degree, limit_nb_max)) as pool:
+        tmp_res = pool.map_async(calculate_lcc, new_list_of_lists, chunksize=1)
+        results_2 = tmp_res.get()
+
     # get all results together
     d_lcc = dict()
     for l in results_2:
@@ -476,7 +497,14 @@ def get_limit_lcc(d_species):
     return ld, nb_max
 
 
-def calculate_lcc(l, all_edges, limit_degree, limit_nb_max):
+def init_lcc_worker(edges, l_degree, l_nb_max):
+    ''' runs once per worker process: bind the shared data as worker globals '''
+    global all_edges, limit_degree, limit_nb_max
+    all_edges, limit_degree, limit_nb_max = edges, l_degree, l_nb_max
+
+
+def calculate_lcc(l):
+    logger.info(' lcc | start, n=%i nodes' % len(l))
     out = list()
     for k in l:
         degree = len(all_edges[k])
@@ -498,6 +526,7 @@ def calculate_lcc(l, all_edges, limit_degree, limit_nb_max):
                         nb_found += 1
             lcc = round( 2 * nb_found / nb_max, 5)
         out.append((k,lcc))
+    logger.info(' lcc | done, n=%i nodes' % len(out))
     return out
 
 
